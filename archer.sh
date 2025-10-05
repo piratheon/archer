@@ -38,8 +38,8 @@ show_progress() {
 # --- Main Script ---
 
 # 1. Pre-flight checks and welcome
-dialog --backtitle " Arch Installer Pro" --title "Welcome!" \
---msgbox "Welcome to the  Arch Installer Pro!\n\nThis script will guide you through a comprehensive installation of Arch Linux.\n\nPlease ensure you have an active internet connection.\n\nNavigate menus using Arrow Keys, select with Spacebar, and confirm with Enter." 15 70
+dialog --backtitle " Archer Setup" --title "Welcome!" \
+--msgbox "Welcome to Archer Installer Setup!\n\nThis script will guide you through a comprehensive installation of Arch Linux.\n\nPlease ensure you have an active internet connection.\n\nNavigate menus using Arrow Keys, select with Spacebar, and confirm with Enter." 15 70
 
 # Detect boot mode
 if [ -d /sys/firmware/efi/efivars ]; then
