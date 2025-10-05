@@ -1,45 +1,44 @@
 #!/bin/bash
 
 # --- Configuration & Setup ---
-set -eo pipefail # Exit on error or pipe failure
+set -euo pipefail # Exit on error, unset var, or pipe failure
+
+LOG_FILE="/tmp/archer-install.log"
+# Clear log file for new session and start logging
+> "$LOG_FILE"
+exec > >(tee -a "${LOG_FILE}") 2>&1
 
 # --- Functions ---
 
 # Function to display error messages and exit
 error_exit() {
-    # Restore terminal
-    clear
+    local exit_code=$?
+    echo
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "!!                      INSTALLATION FAILED                   !!"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "An error occurred (exit code: $exit_code) on line $1."
+    echo "Please check the log file for details: ${LOG_FILE}"
+    echo "You will be returned to the shell to inspect the system."
+    # We don't exit with 1 to allow the user to stay in the shell
     exit 1
 }
 
 # Trap interrupts and errors for graceful exit
-trap 'dialog --infobox "An unexpected error occurred. Aborting." 4 50; sleep 2; error_exit' ERR
-trap 'dialog --infobox "Installation cancelled by user. Aborting." 4 50; sleep 2; error_exit' SIGINT
+trap 'error_exit $LINENO' ERR
+trap 'echo "Installation cancelled by user."; exit 0' SIGINT
 
 # Ensure dialog is installed
 if ! pacman -Q dialog &>/dev/null; then
+    echo "Installing 'dialog' package for TUI..."
     pacman -Sy --noconfirm dialog
 fi
-
-# Function to display a progress gauge
-show_progress() {
-    local pid=$1
-    local message=$2
-    local spinner="/|\\-"
-    local i=0
-    while kill -0 "$pid" &>/dev/null; do
-        i=$(((i + 1) % 4))
-        echo -ne "\r[${spinner:$i:1}] $message..."
-        sleep 0.1
-    done
-    echo -e "\r[✓] $message... Done."
-}
 
 # --- Main Script ---
 
 # 1. Pre-flight checks and welcome
-dialog --backtitle " Archer Setup" --title "Welcome!" \
---msgbox "Welcome to Archer Installer Setup!\n\nThis script will guide you through a comprehensive installation of Arch Linux.\n\nPlease ensure you have an active internet connection.\n\nNavigate menus using Arrow Keys, select with Spacebar, and confirm with Enter." 15 70
+dialog --backtitle "Archer Setup" --title "Welcome!" \
+--msgbox "Welcome to the Archer Installer!\n\nThis script will guide you through a comprehensive installation of Arch Linux.\n\nPlease ensure you have an active internet connection.\n\nAll actions are logged to: $LOG_FILE" 15 70
 
 # Detect boot mode
 if [ -d /sys/firmware/efi/efivars ]; then
@@ -178,15 +177,22 @@ dialog --title "Final Confirmation" --yesno "$SUMMARY" 25 70
 
 # --- 4. Installation Begins ---
 clear
-echo "Starting installation... This will take some time."
+echo "========================================================"
+echo "         Starting Arch Linux Installation"
+echo " See full log at ${LOG_FILE}"
+echo "========================================================"
+echo
+
+# Activate debug trace
+set -x
 
 # Update system clock
-timedatectl set-ntp true &> /dev/null
-show_progress $! "Synchronizing system clock"
+echo "[+] Synchronizing system clock..."
+timedatectl set-ntp true
 
 # Optimize mirrors
-reflector --country Germany,France,Netherlands --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist &> /dev/null
-show_progress $! "Optimizing pacman mirrors"
+echo "[+] Optimizing pacman mirrors..."
+reflector --country Germany,France,Netherlands --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
 # Partition disk
 echo "[+] Partitioning disk: $DISK"
@@ -246,7 +252,7 @@ if [ "$BOOT_MODE" == "UEFI" ]; then
 fi
 
 # Pacstrap
-echo "[+] Installing base system (pacstrap)"
+echo "[+] Installing base system (pacstrap)... This will take a while."
 BASE_PACKAGES="base linux linux-firmware base-devel grub efibootmgr vim sudo"
 # Add init-specific packages
 case "$INIT_SYSTEM" in
@@ -254,8 +260,7 @@ case "$INIT_SYSTEM" in
     runit)  BASE_PACKAGES+=" runit elogind-runit networkmanager" ;;
     *)      BASE_PACKAGES+=" networkmanager" ;; # systemd
 esac
-pacstrap /mnt $BASE_PACKAGES &> /dev/null
-show_progress $! "Installing base packages"
+pacstrap /mnt $BASE_PACKAGES
 
 # Fstab
 echo "[+] Generating fstab"
@@ -267,7 +272,9 @@ echo "[+] Configuring the new system"
 # Generate chroot script
 cat <<CHROOT_SCRIPT > /mnt/chroot_config.sh
 #!/bin/bash
-set -eo pipefail
+set -euxo pipefail
+
+echo "### CHROOT: Starting System Configuration ###"
 
 # Timezone & Clock
 ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
@@ -316,6 +323,7 @@ fi
 
 # Graphical environment installation
 if [ "$DE_CHOICE" != "none" ]; then
+    echo "### CHROOT: Installing Graphical Environment: \$DE_CHOICE ###"
     DE_PACKAGES=""
     pacman -S --noconfirm --needed xorg-server
     case "\$DE_CHOICE" in
@@ -344,6 +352,7 @@ if [ "$DE_CHOICE" != "none" ]; then
 fi
 
 # Graphics drivers
+echo "### CHROOT: Installing Graphics Drivers for \$GPU_VENDOR ###"
 DRIVER_PACKAGES=""
 case "\$GPU_VENDOR" in
     "NVIDIA") DRIVER_PACKAGES="nvidia-dkms nvidia-utils" ;;
@@ -355,15 +364,18 @@ pacman -S --noconfirm --needed \$DRIVER_PACKAGES
 
 # Additional software
 if [ -n "$ADDITIONAL_SOFTWARE" ]; then
+    echo "### CHROOT: Installing Additional Software ###"
     pacman -S --noconfirm --needed $(echo "$ADDITIONAL_SOFTWARE" | sed 's/yay//')
 fi
 
 # AUR Helper (yay) - must be run as user
 if [[ "$ADDITIONAL_SOFTWARE" == *"yay"* ]] && [ "$CREATE_USER" == "yes" ]; then
+    echo "### CHROOT: Installing AUR Helper (yay) for user \$USERNAME ###"
     pacman -S --noconfirm --needed git
     sudo -u $USERNAME bash -c "cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm"
 fi
 
+echo "### CHROOT: System Configuration Complete ###"
 CHROOT_SCRIPT
 
 # Pass variables to and execute the chroot script
@@ -387,10 +399,16 @@ arch-chroot /mnt env \
 rm /mnt/chroot_config.sh
 
 # --- 6. Finalization ---
-echo "[+] Finalizing installation"
+# Deactivate debug trace
+set +x
+echo
+echo "========================================================"
+echo "         Installation Finalizing"
+echo "========================================================"
+
+echo "[+] Unmounting filesystems"
 umount -R /mnt
 swapoff -a
 
-dialog --title "Installation Complete" --msgbox "Congratulations! Arch Linux has been installed successfully.\n\nYou can now reboot your system. Remove the installation media." 10 60
-clear
+dialog --title "Installation Complete" --msgbox "Congratulations! Arch Linux has been installed successfully.\n\nFull log is available at ${LOG_FILE}\n\nYou can now reboot your system. Remove the installation media." 12 70
 
