@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0-purple?style=for-the-badge)](https://github.com/piratheon/archer)
 
-<img src="[https://archlinux.org/static/logos/archlinux-logo-dark-90dpi.png](https://archlinux.org/static/logos/archlinux-logo-dark-90dpi.png)" alt="Arch Logo" width="300"/>
+![Arch BTW](https://archlinux.org/static/logos/archlinux-logo-dark-90dpi.png)
 
 **Transform your Arch Linux installation from hours of manual configuration to minutes of automated setup**
 
