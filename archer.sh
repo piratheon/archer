@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# Gemini Arch Installer Pro
-# A comprehensive TUI-based installer for Arch Linux.
-# Supports UEFI/BIOS, various DEs, drivers, filesystems, and more.
-#
-# Usage:
-#   bash gemini-arch-install-pro.sh
-
 # --- Configuration & Setup ---
 set -eo pipefail # Exit on error or pipe failure
 
@@ -45,8 +38,8 @@ show_progress() {
 # --- Main Script ---
 
 # 1. Pre-flight checks and welcome
-dialog --backtitle "Gemini Arch Installer Pro" --title "Welcome!" \
---msgbox "Welcome to the Gemini Arch Installer Pro!\n\nThis script will guide you through a comprehensive installation of Arch Linux.\n\nPlease ensure you have an active internet connection.\n\nNavigate menus using Arrow Keys, select with Spacebar, and confirm with Enter." 15 70
+dialog --backtitle " Arch Installer Pro" --title "Welcome!" \
+--msgbox "Welcome to the  Arch Installer Pro!\n\nThis script will guide you through a comprehensive installation of Arch Linux.\n\nPlease ensure you have an active internet connection.\n\nNavigate menus using Arrow Keys, select with Spacebar, and confirm with Enter." 15 70
 
 # Detect boot mode
 if [ -d /sys/firmware/efi/efivars ]; then
@@ -63,7 +56,7 @@ loadkeys "$KEYMAP"
 TIMEZONE=$(dialog --stdout --title "System Localization" --fselect /usr/share/zoneinfo/ 20 80)
 [[ -z "$TIMEZONE" ]] && TIMEZONE="Etc/UTC"
 
-HOSTNAME=$(dialog --stdout --title "Network Configuration" --inputbox "Enter hostname:" 8 60 "gemini-arch")
+HOSTNAME=$(dialog --stdout --title "Network Configuration" --inputbox "Enter hostname:" 8 60 "arch")
 
 # Root Password
 while true; do
